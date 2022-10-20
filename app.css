@@ -106,7 +106,7 @@ a:hover{
 }
 
 .welcome-text{
-    margin: 20px 0 5% 5%;
+    margin: 20px;
     text-align: justify; 
 }
 
@@ -128,4 +128,11 @@ a:hover{
 #password{
     border-top-right-radius: 0.25rem;
     border-bottom-right-radius: 0.25rem;
+}
+
+.incorrect-validation-text{
+    color: red;
+    padding-top: 2px;
+    font-weight: 400;
+    font-size: small;
 }

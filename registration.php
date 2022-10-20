@@ -1,11 +1,95 @@
 <?php
 	session_start();
 	
-	if ((isset($_SESSION['loggedIn']))&&($_SESSION['loggedIn']==true))
+  if (isset($_POST['email'])) // check if for was submited = all variables name, email, password were saved (even if empty) to POST container, so checking one variable is enough
 	{
-		header('Location: main_menu.php');
-		exit(); // exit file and go to file indicated above in header. Without exit() the file would firstly execute to the end and then go to header file 
-	}
+    $isValidationCorrect=true; // validation flag 
+    // name validation
+		$name = $_POST['name'];	
+		if ((strlen($name)<3) || (strlen($name)>30)) // check the name length
+		{
+			$isValidationCorrect=false;
+			$_SESSION['incorrectName']="Name has to be at least 3 and up to 30 sign length!";
+		}
+    //email validation
+		$email = $_POST['email']; 
+		$filteredEmail = filter_var($email, FILTER_SANITIZE_EMAIL); // remove forbidden signs if such exist and leave rest
+		if ((filter_var($filteredEmail, FILTER_VALIDATE_EMAIL)==false) || ($filteredEmail!=$email)) 
+		{
+			$isValidationCorrect=false;
+			$_SESSION['incorrectEmail']="Type correct email address!";
+		}
+
+    //password validation
+		$password = $_POST['password'];
+		if ((strlen($password)<8) || (strlen($password)>30))
+		{
+			$isValidationCorrect=false;
+			$_SESSION['incorrectPassword']="Password has to be at least 8 and up to 30 sign length!";
+		}
+
+		$hashedPassword = password_hash($password, PASSWORD_DEFAULT); // encrypt password (hash), PASSWORD_DEFAULT means use the best method currently known
+
+    //Google recaptcha validation
+    $secretKey = "6Lfa1ZgiAAAAALP1oykI5JFBlOqiv8zT0_GsJiNP";
+    $reCaptchaResponse = file_get_contents('https://www.google.com/recaptcha/api/siteverify?secret='.$secretKey.'&response='.$_POST['g-recaptcha-response']);
+    $reCaptchaResponse = json_decode($reCaptchaResponse);
+		if ($reCaptchaResponse->success==false)
+		{
+			$isValidationCorrect=false;
+			$_SESSION['incorrectReCaptcha']="reCaptcha ERROR!";
+		}	
+
+    //Remember typed data
+		$_SESSION['name'] = $name;
+		$_SESSION['email'] = $email;
+		$_SESSION['password'] = $password;
+
+    require_once "connect.php"; // import from file data necessary to connect to database
+		mysqli_report(MYSQLI_REPORT_STRICT);
+
+    try 
+		{
+			$connection = new mysqli($host, $db_user, $db_password, $db_name);
+			if ($connection->connect_errno!=0)
+			{
+				throw new Exception(mysqli_connect_errno());
+			}
+			else
+			{
+        //Check if email already exists
+				$result = $connection->query("SELECT id FROM users WHERE email='$email'");
+				if (!$result) throw new Exception($connection->error);
+				
+				$emailsCount = $result->num_rows;
+				if($emailsCount>0)
+				{
+					$isValidationCorrect=false;
+					$_SESSION['incorrectEmail']="An account with such email already exists!";
+				}	
+
+        if ($isValidationCorrect==true)
+				{
+					if ($connection->query("INSERT INTO users VALUES (NULL, '$name', '$hashedPassword', '$email')"))
+					{
+						$_SESSION['registrationCompleted']="You have successfully signed up!";
+					}
+					else
+					{
+						throw new Exception($polaczenie->error);
+					}
+					
+				}
+
+        $connection->close();
+      }
+    }
+    catch(Exception $exceptionError)
+		{
+			echo '<div class="incorrect-validation-text">Server ERROR!</div>';
+      echo '<div class="incorrect-validation-text">Detailed Information: '.$exceptionError.';</div>';
+		}
+  }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -25,6 +109,7 @@
   <!-- main CSS -->
   <link rel="stylesheet" href="app.css" />
   <title>Registration</title>
+  <script src="https://www.google.com/recaptcha/enterprise.js?render=6Lfa1ZgiAAAAABajZDkPplmwyNZQJHM0X8tx0A4R"></script>
 </head>
 
 <body>
@@ -79,8 +164,18 @@
   <div class="container">
     <div class="row justify-content-center align-items-center">
       <div class="col-10 col-md-8 col-lg-6 col-xl-5 panel">
+        <?php
+          if (isset($_SESSION['registrationCompleted']))
+          {
+            echo '<div class="d-flex justify-content-center" style="color:green; padding-top:20px">'.$_SESSION['registrationCompleted'].'</div>';
+            unset($_SESSION['registrationCompleted']);
+            unset($_SESSION['name']);
+            unset($_SESSION['email']);
+            unset($_SESSION['password']);
+          }
+        ?>
         <div class="text-center panel-title">Create your account</div>
-        <form action="/myserver">
+        <form id="registrationForm" method="post">
           <div class="form-group input-data">
             <label for="name" class="form-label">Name</label>
             <div class="input-group">
@@ -90,8 +185,21 @@
                   <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
                 </svg>
               </span>
-              <input type="text" class="form-control" id="name" placeholder="name" aria-describedby="basic-addon1">
+              <input type="text" class="form-control" id="name" placeholder="name" name="name" aria-describedby="basic-addon1" value="<?php
+                if (isset($_SESSION['name']))
+                {
+                  echo $_SESSION['name'];
+                  unset($_SESSION['name']);
+                }
+              ?>">
             </div>
+            <?php
+			        if (isset($_SESSION['incorrectName']))
+			        {
+			        	echo '<div class="incorrect-validation-text">'.$_SESSION['incorrectName'].'</div>';
+			        	unset($_SESSION['incorrectName']);
+			        }
+		        ?>
           </div>
           <div class="form-group input-data">
             <label for="email" class="form-label">Email</label>
@@ -103,8 +211,21 @@
                     d="M.05 3.555A2 2 0 0 1 2 2h12a2 2 0 0 1 1.95 1.555L8 8.414.05 3.555ZM0 4.697v7.104l5.803-3.558L0 4.697ZM6.761 8.83l-6.57 4.027A2 2 0 0 0 2 14h12a2 2 0 0 0 1.808-1.144l-6.57-4.027L8 9.586l-1.239-.757Zm3.436-.586L16 11.801V4.697l-5.803 3.546Z" />
                 </svg>
               </span>
-              <input type="text" class="form-control" id="email" placeholder="email" aria-describedby="basic-addon2">
+              <input type="text" class="form-control" id="email" name="email" placeholder="email" aria-describedby="basic-addon2" value="<?php
+                if (isset($_SESSION['email']))
+                {
+                  echo $_SESSION['email'];
+                  unset($_SESSION['email']);
+                }
+              ?>">
             </div>
+            <?php
+			        if (isset($_SESSION['incorrectEmail']))
+			        {
+			        	echo '<div class="incorrect-validation-text">'.$_SESSION['incorrectEmail'].'</div>';
+			        	unset($_SESSION['incorrectEmail']);
+			        }
+		        ?>
           </div>
           <div class="form-group input-data">
             <label for="password" class="form-label">Password</label>
@@ -116,14 +237,34 @@
                     d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM5 8h6a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
                 </svg>
               </span>
-              <input type="password" class="form-control password-input" id="password" placeholder="password"
-                aria-describedby="basic-addon3">
+              <input type="password" class="form-control password-input" id="password" name="password" placeholder="password" aria-describedby="basic-addon3" value="<?php
+                if (isset($_SESSION['password']))
+                {
+                  echo $_SESSION['password'];
+                  unset($_SESSION['password']);
+                }
+              ?>">
                   <i class="bi bi-eye-slash" id="togglePassword"></i>
             </div>
+            <?php
+			        if (isset($_SESSION['incorrectPassword']))
+			        {
+			        	echo '<div class="incorrect-validation-text">'.$_SESSION['incorrectPassword'].'</div>';
+			        	unset($_SESSION['incorrectPassword']);
+			        }
+		        ?>
           </div>
           <div class="d-flex justify-content-center">
-            <button type="button" class="btn btn-primary button">Sign up</button>
+            <button type="submit" class="btn btn-primary button g-recaptcha" data-sitekey="6Lfa1ZgiAAAAABajZDkPplmwyNZQJHM0X8tx0A4R"
+                    data-callback='onSubmit' data-action='submit'>Sign up</button>
           </div>
+          <?php
+			        if (isset($_SESSION['incorrectReCaptcha']))
+			        {
+			        	echo '<div class="d-flex justify-content-center incorrect-validation-text">'.$_SESSION['incorrectReCaptcha'].'</div>';
+			        	unset($_SESSION['incorrectReCaptcha']);
+			        }
+		        ?>
         </form>
         <div class="already-registered">
           <span>Have already an account? </span>
@@ -137,6 +278,11 @@
     integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
     crossorigin="anonymous"></script>
   <script src="js\registration.js"></script>
+  <script>
+   function onSubmit(token) {
+     document.getElementById("registrationForm").submit();
+   }
+</script>
 </body>
 
 </html>
