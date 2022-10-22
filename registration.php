@@ -11,6 +11,12 @@
 			$isValidationCorrect=false;
 			$_SESSION['incorrectName']="Name has to be at least 3 and up to 30 sign length!";
 		}
+    if (ctype_alnum($name)==false) // check if argument has only alphanumeric signs
+		{
+			$isValidationCorrect=false;
+			$_SESSION['incorrectName']="Name has to be without distinctive marks";
+		}
+
     //email validation
 		$email = $_POST['email']; 
 		$filteredEmail = filter_var($email, FILTER_SANITIZE_EMAIL); // remove forbidden signs if such exist and leave rest
@@ -70,14 +76,26 @@
 
         if ($isValidationCorrect==true)
 				{
-					if ($connection->query("INSERT INTO users VALUES (NULL, '$name', '$hashedPassword', '$email')"))
-					{
-						$_SESSION['registrationCompleted']="You have successfully signed up!";
-					}
-					else
-					{
-						throw new Exception($polaczenie->error);
-					}
+          $isUserAddedCorrectly = $connection->query("INSERT INTO users VALUES (NULL, '$name', '$hashedPassword', '$email')");
+          if (!$isUserAddedCorrectly) throw new Exception($connection->error);
+
+          $result = $connection->query("SELECT id FROM users WHERE email='$email'");
+				  if (!$result) throw new Exception($connection->error);
+
+          $row = $result->fetch_assoc();
+          $userId = $row['id'];       
+          $result->free_result(); 
+
+          $isIncomeCategoriesAddedCorrectly = $connection->query("INSERT INTO incomes_category_assigned_to_users (user_id, name) SELECT '$userId', name FROM incomes_category_default");
+          if (!$isIncomeCategoriesAddedCorrectly) throw new Exception($connection->error);
+
+          $isExpenseCategoriesAddedCorrectly = $connection->query("INSERT INTO expenses_category_assigned_to_users (user_id, name) SELECT '$userId', name FROM expenses_category_default");
+          if (!$isExpenseCategoriesAddedCorrectly) throw new Exception($connection->error);
+
+          $isPaymentMethodsAddedCorrectly = $connection->query("INSERT INTO payment_methods_assigned_to_users (user_id, name) SELECT '$userId', name FROM payment_methods_default");
+          if (!$isPaymentMethodsAddedCorrectly) throw new Exception($connection->error);
+
+					$_SESSION['registrationCompleted']="You have successfully signed up!";
 					
 				}
 
@@ -177,7 +195,7 @@
         <div class="text-center panel-title">Create your account</div>
         <form id="registrationForm" method="post">
           <div class="form-group input-data">
-            <label for="name" class="form-label">Name</label>
+            <label for="name" class="form-label">First Name</label>
             <div class="input-group">
               <span class="input-group-text" id="basic-addon1">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"

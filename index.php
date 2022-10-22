@@ -82,6 +82,7 @@
           if (isset($_SESSION['loginError']))
           {
             echo $_SESSION['loginError'];
+            unset($_SESSION['loginError']);
           }
           ?>
         <form action="login.php" method="post">
