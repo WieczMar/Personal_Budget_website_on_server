@@ -25,7 +25,7 @@
 			
 			$email = htmlentities($email, ENT_QUOTES, "UTF-8"); // code sanitation - protecion from MySQL Injection, function htmlentities() that change all signs in variable to entities that browser do not use them as source code, i.e.: <div> converts to &lt;div&gt;
 		
-			if ($result = @$connection->query( // result = send a query to our connected database
+			if ($result = $connection->query( // result = send a query to our connected database
 			sprintf("SELECT * FROM users WHERE email='%s'", // %s means variable of type string, we are using sprintf just for better readability instead of concatanating with dots etc.
 			mysqli_real_escape_string($connection,$email)))) // mysqli_real_escape_string is advanced function in php that also protect form MySQL Injection
 			{
@@ -59,6 +59,9 @@
 					
 				}
 				
+			}
+			else{
+				throw new Exception($connection->error);
 			}
 			
 			$connection->close(); // remember to close connection with database!
