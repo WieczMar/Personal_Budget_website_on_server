@@ -6,7 +6,52 @@
 		header('Location: index.php');
 		exit(); // exit file and go to file indicated above in header. Without exit() the file would firstly execute to the end and then go to header file 
 	}
+
+    require_once "connect.php"; // import from file data necessary to connect to database
+	mysqli_report(MYSQLI_REPORT_STRICT);
+
+    try 
+	{
+        $connection = new mysqli($host, $db_user, $db_password, $db_name);
+        if ($connection->connect_errno!=0)
+        {
+            throw new Exception(mysqli_connect_errno());
+        }
+        else {
+
+            $result = $connection->query("SELECT id, name FROM expenses_category_assigned_to_users WHERE user_id='".$_SESSION['userId']."'");
+            if (!$result) throw new Exception($connection->error);
+            
+            $categoriesCount = $result->num_rows;
+            if($categoriesCount>0)
+            {
+                $rowsExpenseCategory = $result->fetch_all(MYSQLI_ASSOC); 
+                $result->free_result(); 
+                
+            }	
+
+            $result = $connection->query("SELECT id, name FROM payment_methods_assigned_to_users WHERE user_id='".$_SESSION['userId']."'");
+            if (!$result) throw new Exception($connection->error);
+            
+            $methodsCount = $result->num_rows;
+            if($methodsCount>0)
+            {
+                $rowsPaymentMethod = $result->fetch_all(MYSQLI_ASSOC); 
+                $result->free_result(); 
+                
+            }	
+
+            $connection->close();
+        }
+    }
+    catch(Exception $exceptionError)
+    {
+	    echo '<div class="incorrect-validation-text">Server ERROR!</div>';
+        echo '<div class="incorrect-validation-text">Detailed Information: '.$exceptionError.';</div>';
+	}
+ 
 ?>
+
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -116,8 +161,15 @@
     <div class="container">
         <div class="row justify-content-center align-items-center">
             <div class="col-10 col-md-8 col-lg-6 col-xl-5 panel">
+                <?php
+                    if (isset($_SESSION['savingTransactionCompleted']))
+                    {
+                        echo '<div class="d-flex justify-content-center" style="color:green; padding-top:20px">'.$_SESSION['savingTransactionCompleted'].'</div>';
+                        unset($_SESSION['savingTransactionCompleted']);
+                    }
+                ?>
                 <div class="text-center panel-title">Add expense</div>
-                <form action="/myserver">
+                <form action="save_transaction.php" method="post">
                     <div class="form-group input-data">
                         <label for="amount" class="form-label">Amount</label>
                         <div class="input-group">
@@ -134,7 +186,7 @@
                                 </svg>
                             </span>
                             <input type="number" class="form-control" name="amount" id="amount" step="0.01" min="0.00"
-                                placeholder="0.00 PLN" aria-describedby="basic-addon1">
+                                placeholder="0,00 PLN" aria-describedby="basic-addon1">
                         </div>
                     </div>
                     <div class="form-group input-data">
@@ -147,37 +199,27 @@
                                         d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v1h16V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM16 14V5H0v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zm-5.146-5.146-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 0 1 .708-.708L7.5 10.793l2.646-2.647a.5.5 0 0 1 .708.708z" />
                                 </svg>
                             </span>
-                            <input type="date" class="form-control" id="date" aria-describedby="basic-addon2">
+                            <input type="date" class="form-control" id="date" name="date" aria-describedby="basic-addon2">
                         </div>
                     </div>
                     <div class="form-group input-data">
                         <label for="Payment method" class="form-label">Payment method</label>
-                        <select class="form-select" name="Payment method" aria-label="Payment method">
-                            <option value="Cash" selected>Cash</option>
-                            <option value="Debit card">Debit card</option>
-                            <option value="Credit card">Credit card</option>
+                        <select class="form-select" name="paymentMethod" aria-label="Payment method">
+                            <?php
+                                foreach($rowsPaymentMethod as $paymentMethod){
+                                    echo '<option value="'.$paymentMethod['id'].'">'.$paymentMethod['name'].'</option>';
+                                }
+                            ?>
                         </select>
                     </div>
                     <div class="form-group input-data">
-                        <label for="Category" class="form-label">Category</label>
-                        <select class="form-select" name="Category" aria-label="Category">
-                            <option value="Food" selected>Food</option>
-                            <option value="Flat">Flat</option>
-                            <option value="Transport">Transport</option>
-                            <option value="Telecommunications">Telecommunications</option>
-                            <option value="Health care">Health care</option>
-                            <option value="Clothes">Clothes</option>
-                            <option value="Hygiene">Hygiene</option>
-                            <option value="Children">Children</option>
-                            <option value="Entertainment">Entertainment</option>
-                            <option value="Trip">Trip</option>
-                            <option value="Trainings">Trainings</option>
-                            <option value="Books">Books</option>
-                            <option value="Savings">Savings</option>
-                            <option value="Pension">Pension</option>
-                            <option value="Debts repayment">Debts repayment</option>
-                            <option value="Donation">Donation</option>
-                            <option value="Other">Other</option>
+                        <label for="category" class="form-label">Category</label>
+                        <select class="form-select" name="category" aria-label="Category">
+                            <?php
+                                foreach($rowsExpenseCategory as $expenseCategory){
+                                    echo '<option value="'.$expenseCategory['id'].'">'.$expenseCategory['name'].'</option>';
+                                }
+                            ?>
                         </select>
                     </div>
                     <div class="form-group input-data">
@@ -195,8 +237,8 @@
                         </div>
                     </div>
                     <div class="d-grid gap-2 d-sm-flex justify-content-sm-around">
-                        <button type="button" class="btn btn-primary col-sm-3 button">Add</button>
-                        <button type="button" class="btn btn-primary col-sm-3 button cancel-button">Cancel</button>
+                        <button type="submit" class="btn btn-primary col-sm-3 button" name="addButton" value="expense">Add</button>
+                        <a class="btn btn-primary col-sm-3 button cancel-button" href="main_menu.php" role="button">Cancel</a>
                     </div>
                 </form>
             </div>
