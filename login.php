@@ -25,7 +25,7 @@
 			
 			$email = htmlentities($email, ENT_QUOTES, "UTF-8"); // code sanitation - protecion from MySQL Injection, function htmlentities() that change all signs in variable to entities that browser do not use them as source code, i.e.: <div> converts to &lt;div&gt;
 		
-			if ($result = $connection->query( // result = send a query to our connected database
+			if ($result = @$connection->query( // result = send a query to our connected database
 			sprintf("SELECT * FROM users WHERE email='%s'", // %s means variable of type string, we are using sprintf just for better readability instead of concatanating with dots etc.
 			mysqli_real_escape_string($connection,$email)))) // mysqli_real_escape_string is advanced function in php that also protect form MySQL Injection
 			{
@@ -39,7 +39,7 @@
 						$_SESSION['loggedIn'] = true; // session variable flag (dictionary) informing that user is now logged in. Reminder: Session variable (dictionary) is global and avaible for all other php pages
 						unset($_SESSION['loginError']); // delete login error session variable if exists because we successfully logged in
 		
-						$_SESSION['id'] = $row['id']; // set necessary data to global session dictionary
+						$_SESSION['userId'] = $row['id']; // set necessary data to global session dictionary
 						$_SESSION['username'] = $row['username']; // set necessary data to global session dictionary
 						
 						$result->free_result(); // Remember to clear results from query when you do not need it more! alternatives to free_result() is free() or close();
