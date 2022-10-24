@@ -4,8 +4,107 @@
 	if ((!isset($_SESSION['loggedIn']))||($_SESSION['loggedIn']==false))
 	{
 		header('Location: index.php');
-		exit(); // exit file and go to file indicated above in header. Without exit() the file would firstly execute to the end and then go to header file 
+		exit();  
 	}
+
+    require_once "connect.php"; // import from file data necessary to connect to database
+	mysqli_report(MYSQLI_REPORT_STRICT);
+
+    try 
+	{
+        $connection = new mysqli($host, $db_user, $db_password, $db_name);
+        if ($connection->connect_errno!=0)
+        {
+            throw new Exception(mysqli_connect_errno());
+        }
+        else {
+
+            if (!isset($_POST['selectedPeriod'])) $selectedPeriod = "Current month"; // first entry on balance page after logging
+            else $selectedPeriod = $_POST['selectedPeriod'];
+
+            function getPeriodOptions($selectedPeriod) // dynamically show selected option in dropdown selection
+            {
+                $periods = array('Current month', 'Previous month', 'Current year', 'Nonstandard');
+                foreach($periods as $period){
+                    if($period == $selectedPeriod) echo '<option value="'.$period.'" selected>'.$period.'</option>';
+                    else echo '<option value="'.$period.'">'.$period.'</option>';
+                }
+            }
+
+            // getting current date
+            $currentMonth = date('m');
+            $currentYear = date('Y');
+            $previousMonth = sprintf("%02d", $currentMonth-1);
+
+            switch ($selectedPeriod) {
+                case 'Current month':
+                    $startDate = $currentYear.'-'.$currentMonth.'-01';
+                    $endDate = $currentYear.'-'.$currentMonth.'-31';
+                    break;
+                case 'Previous month':
+                    $startDate = $currentYear.'-'.$previousMonth.'-01';
+                    $endDate = $currentYear.'-'.$previousMonth.'-31';
+                    break;
+                case 'Current year':
+                    $startDate = $currentYear.'-01-01';
+                    $endDate = $currentYear.'-12-31';
+                    break;
+                case 'Nonstandard':
+                    $startDate = $_POST['startDate'];
+                    $endDate = $_POST['endDate'];
+                    if($startDate > $endDate) $_SESSION["wrongDateRange"] = '<div class="incorrect-validation-text" style="text-align: center;">Selected wrong date range!</div>';
+                    break;
+            }
+
+            // get incomes data from database
+            $result = $connection->query("SELECT name AS categoryName, SUM(amount) AS categoryAmount FROM incomes, incomes_category_assigned_to_users 
+                WHERE incomes.user_id='".$_SESSION['userId']."' AND incomes.income_category_assigned_to_user_id=incomes_category_assigned_to_users.id 
+                AND incomes.date_of_income BETWEEN '$startDate' AND '$endDate' GROUP BY categoryName ORDER BY categoryAmount DESC");
+            if (!$result) throw new Exception($connection->error);
+            
+            $incomesCount = $result->num_rows;
+            if($incomesCount>0)
+            {
+                $rowsIncomes= $result->fetch_all(MYSQLI_ASSOC); 
+                $result->free_result(); 
+
+                $sumOfIncomes = number_format(array_sum(array_column($rowsIncomes, 'categoryAmount')), 2); // aggregate incomes amount with 2 digit precision
+            }
+            else { // null handling case
+                $rowsIncomes = array(array('categoryName' => '-', 'categoryAmount' => '-'));
+                $sumOfIncomes = number_format(0, 2);
+            }	
+
+            // get expenses data from database
+            $result = $connection->query("SELECT name AS categoryName, SUM(amount) AS categoryAmount FROM expenses, expenses_category_assigned_to_users 
+                WHERE expenses.user_id='".$_SESSION['userId']."' AND expenses.expense_category_assigned_to_user_id=expenses_category_assigned_to_users.id 
+                AND expenses.date_of_expense BETWEEN '$startDate' AND '$endDate' GROUP BY categoryName ORDER BY categoryAmount DESC");
+            if (!$result) throw new Exception($connection->error);
+            
+            $expensesCount = $result->num_rows;
+            if($expensesCount>0)
+            {
+                $rowsExpenses = $result->fetch_all(MYSQLI_ASSOC); 
+                $result->free_result();  
+
+                $sumOfExpenses = number_format(array_sum(array_column($rowsExpenses, 'categoryAmount')), 2); // aggregate expenses amount with 2 digit precision
+            }
+            else { // null handling case
+                $rowsExpenses = array(array('categoryName' => '-', 'categoryAmount' => '-'));
+                $sumOfExpenses = number_format(0, 2);
+            }
+            
+            $balance = number_format($sumOfIncomes - $sumOfExpenses, 2);
+
+            $connection->close();
+        }
+    }
+    catch(Exception $exceptionError)
+    {
+	    echo '<div class="incorrect-validation-text">Server ERROR!</div>';
+        echo '<div class="incorrect-validation-text">Detailed Information: '.$exceptionError.';</div>';
+	}
+
 ?>
 <head>
     <meta charset="UTF-8">
@@ -117,22 +216,29 @@
         <div class="row justify-content-end align-items-center">
             <div class="col-6 col-md-4 col-lg-3">
                 <div class="form-group input-data">
-                    <label for="period" class="form-label">Select period</label>
-                    <select class="form-select" name="period" aria-label="period" id="select-period" >
-                        <option selected>Current month</option>
-                        <option >Previous month</option>
-                        <option >Current year</option>
-                        <option id="nonstandard-period" data-bs-toggle="modal" data-bs-target="#exampleModal">Nonstandard</option>
-                    </select>
+                    <form id="periodForm" method="post">
+                        <label for="selectedPeriod" class="form-label">Select period</label>
+                        <select class="form-select" name="selectedPeriod" onchange="js\view_balance.js" aria-label="period" id="selectedPeriod" >
+                            <?php getPeriodOptions($selectedPeriod);?>
+                        </select>
+                        <?php 
+                            if(isset($_SESSION["wrongDateRange"])){
+                            echo $_SESSION["wrongDateRange"];
+                            unset($_SESSION["wrongDateRange"]);
+                            } 
+                        ?>
+                    </form>
+                    
                 </div>
+
             </div>
         </div>
         <div class="row justify-content-center align-items-center">
             <div class="col-11 col-md-12 panel">
                 <div class="row justify-content-around align-items-start">
-                    <div class="col-11 col-md-6 col-lg-5 justify-content-center">
+                    <div class="col-11 col-md-6 col-lg-5">
                         <div class="text-center table-title">Incomes</div>
-                        <table class="table table-striped table-hover">
+                        <table class="table table-striped table-hover" id="incomesTable">
                             <thead>
                                 <tr>
                                     <th>Category</th>
@@ -140,24 +246,17 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td>Food</td>
-                                    <td>100</td>
-                                </tr>
-                                <tr>
-                                    <td>Children</td>
-                                    <td>110</td>
-                                </tr>
-                                <tr>
-                                    <td>Flat</td>
-                                    <td>1500</td>
-                                </tr>
+                                <?php
+                                    foreach($rowsIncomes as $income){
+                                        echo '<tr><td>'.$income['categoryName'].'</td> <td>'.$income['categoryAmount'].'</td> </tr>';
+                                    }
+                                ?>
                             </tbody>
                         </table>
                     </div>
                     <div class="col-11 col-md-6 col-lg-5">
                         <div class="text-center table-title">Expenses</div>
-                        <table class="table table-striped table-hover">
+                        <table class="table table-striped table-hover" id="expensesTable">
                             <thead>
                                 <tr>
                                     <th>Category</th>
@@ -165,14 +264,11 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td>Food</td>
-                                    <td>100</td>
-                                </tr>
-                                <tr>
-                                    <td>Flat</td>
-                                    <td>1500</td>
-                                </tr>
+                                <?php
+                                    foreach($rowsExpenses as $expense){
+                                        echo '<tr><td>'.$expense['categoryName'].'</td> <td>'.$expense['categoryAmount'].'</td> </tr>';
+                                    }
+                                ?>
                             </tbody>
                         </table>
                     </div>
@@ -180,23 +276,30 @@
                 <div class="row justify-content-center">
                     <div class="col-11 col-md-5 col-lg-4">
                         <div class="text-center table-title">Summary</div>
-                        <table class="table table-striped table-hover">
+                        <table class="table table-striped table-hover" id="summaryTable">
                             <tr>
                                 <th>Total incomes</th>
-                                <td colspan="2">1111</td>
+                                <td colspan="2"><?php echo $sumOfIncomes ?></td>
                             </tr>
                             <tr>
                                 <th>Total expenses</th>
-                                <td colspan="2">1000</td>
+                                <td colspan="2"><?php echo $sumOfExpenses ?></td>
                             </tr>
                             <tr>
                                 <th>Balance</th>
-                                <td colspan="2">111</td>
+                                <td colspan="2"><?php echo $balance ?></td>
                             </tr>
                         </table>
                     </div>
                 </div>
-
+                <div class="row justify-content-around"> 
+                    <div class="col-11 col-md-6 col-lg-5">
+                        <canvas id="incomesPieChart"></canvas>
+                    </div>
+                    <div class="col-11 col-md-6 col-lg-5">
+                        <canvas id="expensesPieChart"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -209,38 +312,40 @@
           <h5 class="modal-title" id="exampleModalLabel">Select nonstandard period</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
-            <div class="form-group input-data">
-                <label for="date" class="form-label">Start date</label>
-                <div class="input-group">
-                    <span class="input-group-text" id="basic-addon2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                            class="bi bi-calendar-check-fill" viewBox="0 0 16 16">
-                            <path
-                                d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v1h16V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM16 14V5H0v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zm-5.146-5.146-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 0 1 .708-.708L7.5 10.793l2.646-2.647a.5.5 0 0 1 .708.708z" />
-                        </svg>
-                    </span>
-                    <input type="date" class="form-control" id="date" aria-describedby="basic-addon2">
+        <form method="post">
+            <div class="modal-body">
+                <div class="form-group input-data">
+                    <label for="date" class="form-label">Start date</label>
+                    <div class="input-group">
+                        <span class="input-group-text" id="basic-addon2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                class="bi bi-calendar-check-fill" viewBox="0 0 16 16">
+                                <path
+                                    d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v1h16V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM16 14V5H0v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zm-5.146-5.146-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 0 1 .708-.708L7.5 10.793l2.646-2.647a.5.5 0 0 1 .708.708z" />
+                            </svg>
+                        </span>
+                        <input type="date" class="form-control" id="startDate" name="startDate" aria-describedby="basic-addon2">
+                    </div>
+                </div>
+                <div class="form-group input-data">
+                    <label for="date" class="form-label">End date</label>
+                    <div class="input-group">
+                        <span class="input-group-text" id="basic-addon2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                class="bi bi-calendar-check-fill" viewBox="0 0 16 16">
+                                <path
+                                    d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v1h16V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM16 14V5H0v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zm-5.146-5.146-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 0 1 .708-.708L7.5 10.793l2.646-2.647a.5.5 0 0 1 .708.708z" />
+                            </svg>
+                        </span>
+                        <input type="date" class="form-control" id="endDate" name="endDate" aria-describedby="basic-addon2">
+                    </div>
                 </div>
             </div>
-            <div class="form-group input-data">
-                <label for="date" class="form-label">End date</label>
-                <div class="input-group">
-                    <span class="input-group-text" id="basic-addon2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                            class="bi bi-calendar-check-fill" viewBox="0 0 16 16">
-                            <path
-                                d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v1h16V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM16 14V5H0v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zm-5.146-5.146-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 0 1 .708-.708L7.5 10.793l2.646-2.647a.5.5 0 0 1 .708.708z" />
-                        </svg>
-                    </span>
-                    <input type="date" class="form-control" id="date" aria-describedby="basic-addon2">
-                </div>
+            <div class="modal-footer">
+            <button type="submit" class="btn btn-secondary cancel-button" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary button" name="selectedPeriod" value="Nonstandard">Set selected dates</button>
             </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary cancel-button" data-bs-dismiss="modal">Cancel</button>
-          <button type="button" class="btn btn-primary button">Set selected dates</button>
-        </div>
+        </form>
       </div>
     </div>
   </div>
@@ -248,6 +353,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
         crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.js"></script>
     <script src="js\view_balance.js"></script>
 </body>
 
