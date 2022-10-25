@@ -164,7 +164,7 @@
                 <?php
                     if (isset($_SESSION['savingTransactionCompleted']))
                     {
-                        echo '<div class="d-flex justify-content-center" style="color:green; padding-top:20px">'.$_SESSION['savingTransactionCompleted'].'</div>';
+                        echo $_SESSION['savingTransactionCompleted'];
                         unset($_SESSION['savingTransactionCompleted']);
                     }
                 ?>

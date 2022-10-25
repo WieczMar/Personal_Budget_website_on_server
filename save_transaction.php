@@ -41,10 +41,10 @@
                 $isExpenseAddedCorrectly = $connection->query("INSERT INTO expenses VALUES (NULL, '$userId', '$categoryId', '$paymentMethodId', '$amount', '$date', '$comment')");
                 if (!$isExpenseAddedCorrectly) throw new Exception($connection->error);
 
-                $_SESSION['savingTransactionCompleted']="You have successfully added new expense!";
+                $_SESSION['savingTransactionCompleted'] = '<div class="d-flex justify-content-center" style="color:green; padding-top:20px">You have successfully added new expense!</div>';
                 header('Location: add_expense.php');
+                
             }
-
                        
             $connection->close();
         }

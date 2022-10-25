@@ -1,17 +1,18 @@
-const mySelect = document.querySelector('#selectedPeriod');
-const myForm = document.querySelector('#periodForm');
+//Modal select nonstandard Date Range
+const dropDownList = document.querySelector('#selectedPeriod');
+const periodForm = document.querySelector('#periodForm');
 
-mySelect.addEventListener('change', function () {
-    if (mySelect.value === "Nonstandard"){
-        const myModal = new bootstrap.Modal(document.querySelector('#exampleModal'),{});
+dropDownList.addEventListener('change', function () {
+    if (dropDownList.value === "Nonstandard"){
+        const myModal = new bootstrap.Modal(document.querySelector('#nonstandardDateRangeModal'),{});
             myModal.show();
     }
     else{
-        myForm.submit();
+        periodForm.submit();
     }
 });
 
-
+//Get data from tables to draw pieCharts
 const incomesTable = document.querySelector('#incomesTable');
 const expensesTable = document.querySelector('#expensesTable');
 
@@ -39,6 +40,7 @@ for (let j = 1; j < expensesRowsLength; j++){
   
 }
 
+//draw pieCharts
 let containerIncomesPieChart = document.querySelector("#incomesPieChart").getContext('2d');
 let incomesPieChart = new Chart(containerIncomesPieChart, {
   type: 'pie',
@@ -69,8 +71,8 @@ let expensesPieChart = new Chart(containerExpensesPieChart, {
     labels: expenseCategories,
     datasets: [{
       data: expenseAmounts,
-      backgroundColor: ["#0077b6", "#264653", "#146428", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51", "#F7464A", "#9b3228"],
-      hoverBackgroundColor: ["#0f82c3", "#3c6469", "#23783c", "#3ca5a0", "#f5cd73", "#ffaf6e", "#f57d5f", "#FF5A5E", "#a54132"]
+      backgroundColor: ["#264653", "#0077b6", "#146428", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51", "#F7464A", "#9b3228"],
+      hoverBackgroundColor: ["#3c6469", "#0f82c3", "#23783c", "#3ca5a0", "#f5cd73", "#ffaf6e", "#f57d5f", "#FF5A5E", "#a54132"]
     }]
   },
   options: {
