@@ -32,7 +32,7 @@
       <div class="col-6 d-flex flex-row">
         <div class="display-6 text-center">Personal Budget</div>
         <div>
-          <img class="d-none d-md-block header-icon" src="imgs\header.png." alt="hand-icon" />
+          <img class="d-none d-md-block header-icon" src="imgs\header.png" alt="hand-icon" />
         </div>
       </div>
       <div class="col-4 text-center">Become the Master of Your Money</div>
