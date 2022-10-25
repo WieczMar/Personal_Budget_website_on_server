@@ -1,5 +1,5 @@
 <?php
-	// includes data necessary to connect to database (here:XAMPP)
+	// includes data necessary to connect to database 
 	$host = "localhost"; 
 	$db_user = "root";
 	$db_password = "";
