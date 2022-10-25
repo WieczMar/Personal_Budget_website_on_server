@@ -68,11 +68,11 @@
                 $rowsIncomes= $result->fetch_all(MYSQLI_ASSOC); 
                 $result->free_result(); 
 
-                $sumOfIncomes = number_format(array_sum(array_column($rowsIncomes, 'categoryAmount')), 2); // aggregate incomes amount with 2 digit precision
+                $sumOfIncomes = number_format(array_sum(array_column($rowsIncomes, 'categoryAmount')), 2,  '.', ''); // aggregate incomes amount with 2 digit precision
             }
             else { // null handling case
                 $rowsIncomes = array(array('categoryName' => '-', 'categoryAmount' => '-'));
-                $sumOfIncomes = number_format(0, 2);
+                $sumOfIncomes = number_format(0, 2,  '.', '');
             }	
 
             // get expenses data from database
@@ -87,14 +87,14 @@
                 $rowsExpenses = $result->fetch_all(MYSQLI_ASSOC); 
                 $result->free_result();  
 
-                $sumOfExpenses = number_format(array_sum(array_column($rowsExpenses, 'categoryAmount')), 2); // aggregate expenses amount with 2 digit precision
+                $sumOfExpenses = number_format(array_sum(array_column($rowsExpenses, 'categoryAmount')), 2,  '.', ''); // aggregate expenses amount with 2 digit precision
             }
             else { // null handling case
                 $rowsExpenses = array(array('categoryName' => '-', 'categoryAmount' => '-'));
-                $sumOfExpenses = number_format(0, 2);
+                $sumOfExpenses = number_format(0, 2,  '.', '');
             }
             
-            $balance = number_format($sumOfIncomes - $sumOfExpenses, 2);
+            $balance = number_format($sumOfIncomes - $sumOfExpenses, 2,  '.', '');
 
             $connection->close();
         }
@@ -128,7 +128,7 @@
             <div class="col-6 d-flex flex-row">
                 <div class="display-6 text-center">Personal Budget</div>
                 <div>
-                    <img class="d-none d-md-block header-icon" src="imgs\header.png." alt="hand-icon" />
+                    <img class="d-none d-md-block header-icon" src="imgs\header.png" alt="hand-icon" />
                 </div>
             </div>
             <div class="col-4 text-center">Become the Master of Your Money</div>

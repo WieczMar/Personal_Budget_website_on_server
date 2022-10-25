@@ -30,7 +30,7 @@
                 $isIncomeAddedCorrectly = $connection->query("INSERT INTO incomes VALUES (NULL, '$userId', '$categoryId', '$amount', '$date', '$comment')");
                 if (!$isIncomeAddedCorrectly) throw new Exception($connection->error);
 
-                $_SESSION['savingTransactionCompleted']="You have successfully added new income!";
+                $_SESSION['savingTransactionCompleted'] = '<div class="d-flex justify-content-center" style="color:green; padding-top:20px">You have successfully added new income!</div>';
                 header('Location: add_income.php');
             }
 
